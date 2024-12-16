@@ -219,6 +219,7 @@ def test_strict_slashes_leaves_dont_consume():
             r.Rule("/path3/", endpoint="branch", strict_slashes=False),
             r.Rule("/path4", endpoint="leaf", strict_slashes=False),
             r.Rule("/path4/", endpoint="branch", strict_slashes=False),
+            r.Rule("/path5", endpoint="leaf"),
         ],
         strict_slashes=False,
     )
@@ -233,6 +234,7 @@ def test_strict_slashes_leaves_dont_consume():
     assert adapter.match("/path3/", method="GET") == ("branch", {})
     assert adapter.match("/path4", method="GET") == ("leaf", {})
     assert adapter.match("/path4/", method="GET") == ("branch", {})
+    assert adapter.match("/path5/", method="GET") == ("leaf", {})
 
 
 def test_environ_defaults():
@@ -1392,9 +1394,97 @@ def test_rule_websocket_methods():
     r.Rule("/ws", endpoint="ws", websocket=True, methods=["get", "head", "options"])
 
 
+def test_path_weighting():
+    m = r.Map(
+        [
+            r.Rule("/<path:path>/c", endpoint="simple"),
+            r.Rule("/<path:path>/<a>/<b>", endpoint="complex"),
+        ]
+    )
+    a = m.bind("localhost", path_info="/a/b/c")
+
+    assert a.match() == ("simple", {"path": "a/b"})
+
+
 def test_newline_match():
     m = r.Map([r.Rule("/hello", endpoint="hello")])
     a = m.bind("localhost")
 
     with pytest.raises(NotFound):
         a.match("/hello\n")
+
+
+def test_weighting():
+    m = r.Map(
+        [
+            r.Rule("/<int:value>", endpoint="int"),
+            r.Rule("/<uuid:value>", endpoint="uuid"),
+        ]
+    )
+    a = m.bind("localhost")
+
+    assert a.match("/2b5b0911-fdcf-4dd2-921b-28ace88db8a0") == (
+        "uuid",
+        {"value": uuid.UUID("2b5b0911-fdcf-4dd2-921b-28ace88db8a0")},
+    )
+
+
+def test_strict_slashes_false():
+    map = r.Map(
+        [
+            r.Rule("/path1", endpoint="leaf_path", strict_slashes=False),
+            r.Rule("/path2/", endpoint="branch_path", strict_slashes=False),
+        ],
+    )
+
+    adapter = map.bind("example.org", "/")
+
+    assert adapter.match("/path1", method="GET") == ("leaf_path", {})
+    assert adapter.match("/path1/", method="GET") == ("leaf_path", {})
+    assert adapter.match("/path2", method="GET") == ("branch_path", {})
+    assert adapter.match("/path2/", method="GET") == ("branch_path", {})
+
+
+def test_invalid_rule():
+    with pytest.raises(ValueError):
+        map_ = r.Map([r.Rule("/<int()>", endpoint="test")])
+        map_.bind("localhost")
+
+
+def test_multiple_converters_per_part():
+    map_ = r.Map(
+        [
+            r.Rule("/v<int:major>.<int:minor>", endpoint="version"),
+        ],
+    )
+    adapter = map_.bind("localhost")
+    assert adapter.match("/v1.2") == ("version", {"major": 1, "minor": 2})
+
+
+def test_static_regex_escape():
+    map_ = r.Map(
+        [
+            r.Rule("/.<int:value>", endpoint="dotted"),
+        ],
+    )
+    adapter = map_.bind("localhost")
+    assert adapter.match("/.2") == ("dotted", {"value": 2})
+    with pytest.raises(NotFound):
+        adapter.match("/a2")
+
+
+class RegexConverter(r.BaseConverter):
+    def __init__(self, url_map, *items):
+        super().__init__(url_map)
+        self.regex = items[0]
+
+
+def test_regex():
+    map_ = r.Map(
+        [
+            r.Rule(r"/<regex('[^/:]+\.[^/:]+'):value>", endpoint="regex"),
+        ],
+        converters={"regex": RegexConverter},
+    )
+    adapter = map_.bind("localhost")
+    assert adapter.match("/asdfsa.asdfs") == ("regex", {"value": "asdfsa.asdfs"})

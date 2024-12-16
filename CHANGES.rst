@@ -1,5 +1,43 @@
 .. currentmodule:: werkzeug
 
+Version 2.2.2
+-------------
+
+Released 2022-08-08
+
+-   Fix router to restore the 2.1 ``strict_slashes == False`` behaviour
+    whereby leaf-requests match branch rules and vice
+    versa. :pr:`2489`
+-   Fix router to identify invalid rules rather than hang parsing them,
+    and to correctly parse ``/`` within converter arguments. :pr:`2489`
+-   Update subpackage imports in :mod:`werkzeug.routing` to use the
+    ``import as`` syntax for explicitly re-exporting public attributes.
+    :pr:`2493`
+-   Parsing of some invalid header characters is more robust. :pr:`2494`
+-   When starting the development server, a warning not to use it in a
+    production deployment is always shown. :issue:`2480`
+-   ``LocalProxy.__wrapped__`` is always set to the wrapped object when
+    the proxy is unbound, fixing an issue in doctest that would cause it
+    to fail. :issue:`2485`
+-   Address one ``ResourceWarning`` related to the socket used by
+    ``run_simple``. :issue:`2421`
+
+
+Version 2.2.1
+-------------
+
+Released 2022-07-27
+
+-   Fix router so that ``/path/`` will match a rule ``/path`` if strict
+    slashes mode is disabled for the rule. :issue:`2467`
+-   Fix router so that partial part matches are not allowed
+    i.e. ``/2df`` does not match ``/<int>``. :pr:`2470`
+-   Fix router static part weighting, so that simpler routes are matched
+    before more complex ones. :issue:`2471`
+-   Restore ``ValidationError`` to be importable from
+    ``werkzeug.routing``. :issue:`2465`
+
+
 Version 2.2.0
 -------------
 
@@ -18,6 +56,8 @@ Released 2022-07-23
     and ``end_col_offset`` are present on AST nodes. :issue:`2425`
 -   Add a new faster matching router based on a state
     machine. :pr:`2433`
+-   Fix branch leaf path masking branch paths when strict-slashes is
+    disabled. :issue:`1074`
 -   Names within options headers are always converted to lowercase. This
     matches :rfc:`6266` that the case is not relevant. :issue:`2442`
 -   ``AnyConverter`` validates the value passed for it when building
@@ -28,16 +68,7 @@ Released 2022-07-23
     based on WSGI versions. :issue:`2408`
 -   Added Sans-IO ``get_content_length`` function. :pr:`2415`
 -   Don't assume a mimetype for test responses. :issue:`2450`
-
-
-Version 2.1.3
--------------
-
-Unreleased
-
--   Add ``os.PathLike`` as a supported type for
-    ``werkzeug.datastructures.FileStorage`` in the typing information
-    file. It was already supported by the code. :pr:`2418`
+-   Type checking ``FileStorage`` accepts ``os.PathLike``. :pr:`2418`
 
 
 Version 2.1.2
